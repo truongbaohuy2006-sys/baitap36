@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Bài tập 36 - Mini Game Hứng Táo</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      background-color: #eef2f7;
+      color: #0f172a;
+      min-height: 100vh;
+      padding: 20px 12px;
+    }
+
+    .page {
+      max-width: 600px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .top-bar {
+      width: 500px;
+      max-width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .top-bar h1 {
+      font-size: 1.25rem;
+    }
+
+    .back-link {
+      color: #2563eb;
+      text-decoration: none;
+      font-weight: 600;
+      font-size: 0.92rem;
+    }
+
+    .back-link:hover {
+      text-decoration: underline;
+    }
+
+    .hud {
+      width: 500px;
+      max-width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      background-color: #ffffff;
+      border: 1px solid #cbd5e1;
+      border-radius: 10px;
+      padding: 10px 14px;
+      font-weight: 700;
+    }
+
+    .hud-item span {
+      color: #2563eb;
+    }
+
+    #startBtn {
+      padding: 8px 16px;
+      font-size: 0.92rem;
+      font-weight: 700;
+      color: #ffffff;
+      background-color: #16a34a;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+
+    #startBtn:hover {
+      background-color: #15803d;
+    }
+
+    /* Khung game: 500px x 400px, bo góc, nền sáng, relative, overflow: hidden */
+    #game-container {
+      position: relative;
+      width: 500px;
+      height: 400px;
+      max-width: 100%;
+      background: linear-gradient(180deg, #f8fafc 0%, #e0f2fe 100%);
+      border: 2px solid #94a3b8;
+      border-radius: 14px;
+      overflow: hidden;
+      box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+    }
+
+    /* Quả táo rơi tự do từ trên xuống theo trục tung (top) */
+    #apple {
+      position: absolute;
+      top: 0;
+      left: 235px;
+      width: 30px;
+      height: 30px;
+      font-size: 26px;
+      line-height: 30px;
+      text-align: center;
+      user-select: none;
+    }
+
+    /* Giỏ hứng ở đáy khung game */
+    #basket {
+      position: absolute;
+      bottom: 12px;
+      left: 210px;
+      width: 80px;
+      height: 22px;
+      background: linear-gradient(180deg, #92400e 0%, #78350f 100%);
+      border: 2px solid #451a03;
+      border-radius: 4px 4px 12px 12px;
+      box-shadow: 0 3px 6px rgba(69, 26, 3, 0.25);
+    }
+
+    .overlay {
+      position: absolute;
+      inset: 0;
+      background-color: rgba(15, 23, 42, 0.65);
+      color: #ffffff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      text-align: center;
+      font-size: 1.15rem;
+      font-weight: 700;
+    }
+
+    .overlay.hidden {
+      display: none;
+    }
+
+    .overlay.game-over {
+      background-color: rgba(127, 29, 29, 0.85);
+      font-size: 1.65rem;
+      letter-spacing: 0.5px;
+    }
+
+    .hint {
+      font-size: 0.88rem;
+      color: #475569;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <div class="top-bar">
+      <a href="index.html" class="back-link">&larr; Về trang chủ (index.html)</a>
+      <h1>Mini Game Hứng Táo</h1>
+    </div>
+
+    <div class="hud">
+      <div class="hud-item">Điểm số: <span id="score">0</span></div>
+      <div class="hud-item">Mạng sống: <span id="lives">3</span></div>
+      <button type="button" id="startBtn">Bắt đầu</button>
+    </div>
+
+    <div id="game-container" aria-label="Khung trò chơi hứng táo">
+      <div id="apple" aria-hidden="true">🍎</div>
+      <div id="basket" aria-hidden="true"></div>
+
+      <div id="overlay" class="overlay">
+        <p id="overlayText">Nhấn "Bắt đầu" để chơi (dùng phím &larr; / &rarr; để di chuyển giỏ)</p>
+      </div>
+    </div>
+
+    <p class="hint">Điều khiển: phím mũi tên Trái (<code>ArrowLeft</code>) và Phải (<code>ArrowRight</code>).</p>
+  </main>
+
+  <script>
+    const CONTAINER_WIDTH = 500;
+    const CONTAINER_HEIGHT = 400;
+    const BASKET_WIDTH = 80;
+    const BASKET_HEIGHT = 22;
+    const BASKET_BOTTOM = 12;
+    const BASKET_SPEED = 24;
+
+    const APPLE_SIZE = 30;
+    const INITIAL_FALL_SPEED = 2.6;
+    const SPEED_INCREMENT = 0.25;
+    const INITIAL_LIVES = 3;
+
+    const basket = document.getElementById("basket");
+    const apple = document.getElementById("apple");
+    const scoreEl = document.getElementById("score");
+    const livesEl = document.getElementById("lives");
+    const startBtn = document.getElementById("startBtn");
+    const overlay = document.getElementById("overlay");
+    const overlayText = document.getElementById("overlayText");
+
+    let score = 0;
+    let lives = INITIAL_LIVES;
+    let basketX = (CONTAINER_WIDTH - BASKET_WIDTH) / 2;
+    let appleX = 0;
+    let appleY = 0;
+    let fallSpeed = INITIAL_FALL_SPEED;
+    let isRunning = false;
+    let animationFrameId = null;
+
+    function randomAppleX() {
+      const maxX = CONTAINER_WIDTH - APPLE_SIZE;
+      return Math.floor(Math.random() * (maxX + 1));
+    }
+
+    function resetApple(keepSpeed = false) {
+      appleX = randomAppleX();
+      appleY = -APPLE_SIZE;
+      if (!keepSpeed) {
+        fallSpeed = INITIAL_FALL_SPEED;
+      }
+      apple.style.left = `${appleX}px`;
+      apple.style.top = `${appleY}px`;
+    }
+
+    function updateBasketPosition() {
+      basket.style.left = `${basketX}px`;
+    }
+
+    function updateHud() {
+      scoreEl.textContent = String(score);
+      livesEl.textContent = String(lives);
+    }
+
+    function stopGameLoop() {
+      isRunning = false;
+      if (animationFrameId !== null) {
+        cancelAnimationFrame(animationFrameId);
+        animationFrameId = null;
+      }
+    }
+
+    function triggerGameOver() {
+      stopGameLoop();
+      overlay.classList.remove("hidden");
+      overlay.classList.add("game-over");
+      overlayText.textContent = `Game Over — Điểm: ${score}`;
+      startBtn.textContent = "Chơi lại";
+    }
+
+    function isCaughtByBasket() {
+      const basketTop = CONTAINER_HEIGHT - BASKET_BOTTOM - BASKET_HEIGHT;
+      const basketBottom = CONTAINER_HEIGHT - BASKET_BOTTOM;
+      const appleBottom = appleY + APPLE_SIZE;
+
+      const overlapsX =
+        appleX + APPLE_SIZE > basketX + 4 && appleX < basketX + BASKET_WIDTH - 4;
+      const reachesBasketY = appleBottom >= basketTop && appleY <= basketBottom;
+
+      return overlapsX && reachesBasketY;
+    }
+
+    function gameLoop() {
+      if (!isRunning) return;
+
+      appleY += fallSpeed;
+      apple.style.top = `${appleY}px`;
+
+      if (isCaughtByBasket()) {
+        score += 1;
+        fallSpeed += SPEED_INCREMENT;
+        updateHud();
+        resetApple(true);
+      } else if (appleY + APPLE_SIZE >= CONTAINER_HEIGHT) {
+        lives -= 1;
+        updateHud();
+        if (lives <= 0) {
+          triggerGameOver();
+          return;
+        }
+        resetApple(true);
+      }
+
+      animationFrameId = requestAnimationFrame(gameLoop);
+    }
+
+    function startGame() {
+      stopGameLoop();
+      score = 0;
+      lives = INITIAL_LIVES;
+      fallSpeed = INITIAL_FALL_SPEED;
+      basketX = (CONTAINER_WIDTH - BASKET_WIDTH) / 2;
+      updateHud();
+      updateBasketPosition();
+      resetApple(false);
+
+      overlay.classList.remove("game-over");
+      overlay.classList.add("hidden");
+      startBtn.textContent = "Chơi lại";
+      isRunning = true;
+      animationFrameId = requestAnimationFrame(gameLoop);
+    }
+
+    document.addEventListener("keydown", (event) => {
+      if (!isRunning) return;
+      if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+
+      event.preventDefault();
+      if (event.key === "ArrowLeft") {
+        basketX = Math.max(0, basketX - BASKET_SPEED);
+      } else if (event.key === "ArrowRight") {
+        basketX = Math.min(CONTAINER_WIDTH - BASKET_WIDTH, basketX + BASKET_SPEED);
+      }
+      updateBasketPosition();
+    });
+
+    startBtn.addEventListener("click", startGame);
+
+    updateHud();
+    updateBasketPosition();
+    resetApple(false);
+  </script>
+</body>
+</html>
